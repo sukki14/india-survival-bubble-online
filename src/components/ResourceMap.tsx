@@ -1,10 +1,9 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { MapPin, Food, Water, Hospital, Shelter } from "lucide-react";
+import { MapPin, Cloud, Hospital, House } from "lucide-react";
 import { Resource } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -146,11 +145,11 @@ const ResourceMap: React.FC = () => {
   const getResourceIcon = (type: string) => {
     switch (type) {
       case 'food':
-        return <Food className="h-4 w-4 text-green-600" />;
+        return <Cloud className="h-4 w-4 text-green-600" />;
       case 'water':
-        return <Water className="h-4 w-4 text-blue-600" />;
+        return <Cloud className="h-4 w-4 text-blue-600" />;
       case 'shelter':
-        return <Shelter className="h-4 w-4 text-orange-600" />;
+        return <House className="h-4 w-4 text-orange-600" />;
       case 'medical':
         return <Hospital className="h-4 w-4 text-red-600" />;
       default:

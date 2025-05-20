@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -7,7 +6,7 @@ import { useData } from '@/contexts/DataContext';
 import { Form } from '@/components/ui/form';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Phone, Plus, Trash2, User, Ambulance, FireExtinguisher, Police } from "lucide-react";
+import { Phone, Plus, Trash2, User, Ambulance, FireExtinguisher, Building } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -45,7 +44,7 @@ const EmergencyContactsList: React.FC = () => {
       } else if (contact.name.toLowerCase().includes("fire") || contact.relationship.toLowerCase().includes("fire")) {
         return <FireExtinguisher className="h-5 w-5 text-orange-500" />;
       } else if (contact.name.toLowerCase().includes("police") || contact.relationship.toLowerCase().includes("law")) {
-        return <Police className="h-5 w-5 text-blue-500" />;
+        return <Building className="h-5 w-5 text-blue-500" />;
       }
     }
     return <User className="h-5 w-5" />;
