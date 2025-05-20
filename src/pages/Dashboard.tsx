@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,7 +14,7 @@ import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DisasterAlert as DisasterAlertType } from '@/types';
-import { Info } from 'lucide-react';
+import { Bell, Info } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
