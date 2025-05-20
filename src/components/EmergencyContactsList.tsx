@@ -1,0 +1,130 @@
+
+import React, { useState } from 'react';
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { EmergencyContact } from "@/types";
+import { useData } from '@/contexts/DataContext';
+import { Form } from '@/components/ui/form';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Phone, Plus, Trash2, User } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
+const EmergencyContactsList: React.FC = () => {
+  const { emergencyContacts, addEmergencyContact, removeEmergencyContact } = useData();
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newContact, setNewContact] = useState({
+    name: "",
+    phone: "",
+    relationship: ""
+  });
+
+  const handleAddContact = (e: React.FormEvent) => {
+    e.preventDefault();
+    addEmergencyContact(newContact);
+    setNewContact({ name: "", phone: "", relationship: "" });
+    setIsAddDialogOpen(false);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-lg font-semibold">Emergency Contacts</h2>
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm">
+              <Plus className="h-4 w-4 mr-1" />
+              Add Contact
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Emergency Contact</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleAddContact} className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Name</Label>
+                <Input
+                  id="name"
+                  value={newContact.name}
+                  onChange={(e) => setNewContact({...newContact, name: e.target.value})}
+                  placeholder="Contact name"
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  value={newContact.phone}
+                  onChange={(e) => setNewContact({...newContact, phone: e.target.value})}
+                  placeholder="Phone number"
+                  required
+                  type="tel"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="relationship">Relationship</Label>
+                <Input
+                  id="relationship"
+                  value={newContact.relationship}
+                  onChange={(e) => setNewContact({...newContact, relationship: e.target.value})}
+                  placeholder="Family, Friend, etc."
+                />
+              </div>
+              
+              <DialogFooter>
+                <Button type="submit">Add Contact</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {emergencyContacts.length === 0 ? (
+        <Card>
+          <CardContent className="pt-6 text-center text-muted-foreground">
+            <p>No emergency contacts added yet.</p>
+            <p className="text-sm">Add contacts to quickly reach them during emergencies.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-3">
+          {emergencyContacts.map((contact) => (
+            <Card key={contact.id} className="overflow-hidden">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-accent rounded-full p-2">
+                      <User className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="font-medium">{contact.name}</p>
+                      <div className="flex items-center text-sm text-muted-foreground space-x-2">
+                        <span>{contact.relationship}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button variant="ghost" size="icon" asChild>
+                      <a href={`tel:${contact.phone}`}>
+                        <Phone className="h-4 w-4" />
+                      </a>
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => removeEmergencyContact(contact.id)}>
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default EmergencyContactsList;
