@@ -1,9 +1,10 @@
-
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { DisasterAlert, EmergencyContact, Resource, CommunityMessage, ChecklistItem, Location } from "@/types";
 import { toast } from "@/components/ui/sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import * as FirebaseService from "../firebase/services";
 
-// Sample disaster data for India
+// Sample disaster data for India - will later be moved to Firestore
 const INDIA_DISASTERS: DisasterAlert[] = [
   {
     id: "da1",
@@ -77,7 +78,7 @@ const INDIA_DISASTERS: DisasterAlert[] = [
   }
 ];
 
-// Sample resources data
+// Sample resources data - will later be moved to Firestore
 const SAMPLE_RESOURCES: Resource[] = [
   {
     id: "r1",
@@ -129,7 +130,7 @@ const SAMPLE_RESOURCES: Resource[] = [
   }
 ];
 
-// Sample checklist data
+// Sample checklist data - will later be moved to Firestore
 const SAMPLE_CHECKLISTS: Record<string, ChecklistItem[]> = {
   "Flood": [
     { id: "c1", task: "Move valuables to higher levels", isCompleted: false, disasterType: "Flood" },
@@ -170,114 +171,201 @@ const SAMPLE_CHECKLISTS: Record<string, ChecklistItem[]> = {
 
 interface DataContextType {
   activeDisasters: DisasterAlert[];
-  getLocalDisasters: (location: Location) => DisasterAlert[];
+  getLocalDisasters: (location: Location) => Promise<DisasterAlert[]>;
   emergencyContacts: EmergencyContact[];
-  addEmergencyContact: (contact: Omit<EmergencyContact, "id">) => void;
-  removeEmergencyContact: (id: string) => void;
+  addEmergencyContact: (contact: Omit<EmergencyContact, "id">) => Promise<void>;
+  removeEmergencyContact: (id: string) => Promise<void>;
   resources: Resource[];
   communityMessages: CommunityMessage[];
-  addCommunityMessage: (message: string, userName: string, location: string) => void;
+  addCommunityMessage: (message: string, userName: string, location: string) => Promise<void>;
   checklistItems: ChecklistItem[];
-  getChecklistForDisaster: (disasterType: string) => ChecklistItem[];
-  toggleChecklistItem: (id: string) => void;
+  getChecklistForDisaster: (disasterType: string) => Promise<ChecklistItem[]>;
+  toggleChecklistItem: (id: string) => Promise<void>;
+  isLoading: boolean;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
   const [activeDisasters, setActiveDisasters] = useState<DisasterAlert[]>(INDIA_DISASTERS);
   const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([]);
   const [resources, setResources] = useState<Resource[]>(SAMPLE_RESOURCES);
   const [communityMessages, setCommunityMessages] = useState<CommunityMessage[]>([]);
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load data from localStorage on initial load
+  // Load data from Firebase when user changes
   useEffect(() => {
-    const storedContacts = localStorage.getItem("emergencyContacts");
-    if (storedContacts) {
-      setEmergencyContacts(JSON.parse(storedContacts));
-    }
+    const loadData = async () => {
+      if (!user) {
+        setEmergencyContacts([]);
+        setCommunityMessages([]);
+        setChecklistItems([]);
+        setIsLoading(false);
+        return;
+      }
 
-    const storedMessages = localStorage.getItem("communityMessages");
-    if (storedMessages) {
-      setCommunityMessages(JSON.parse(storedMessages));
-    }
+      setIsLoading(true);
+      try {
+        // Load disasters
+        const disasters = await FirebaseService.getDisasters();
+        setActiveDisasters(disasters.length > 0 ? disasters : INDIA_DISASTERS);
 
-    const storedChecklist = localStorage.getItem("checklistItems");
-    if (storedChecklist) {
-      setChecklistItems(JSON.parse(storedChecklist));
-    }
-  }, []);
+        // Load user-specific data
+        if (user.id) {
+          // Load emergency contacts
+          const contacts = await FirebaseService.getEmergencyContacts(user.id);
+          setEmergencyContacts(contacts);
+
+          // Load checklist items
+          const items = await FirebaseService.getChecklistItems(user.id);
+          setChecklistItems(items);
+        }
+
+        // Load community messages (public)
+        const messages = await FirebaseService.getCommunityMessages();
+        setCommunityMessages(messages);
+
+        // Load resources (public)
+        const fetchedResources = await FirebaseService.getResources();
+        setResources(fetchedResources.length > 0 ? fetchedResources : SAMPLE_RESOURCES);
+
+      } catch (error) {
+        console.error("Error loading data:", error);
+        toast.error("Failed to load data. Using sample data instead.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, [user]);
 
   // Get disasters specific to user location
-  const getLocalDisasters = (location: Location): DisasterAlert[] => {
-    if (!location.state) return [];
-    
-    // Filter disasters by state (in a real app this would be more precise)
-    return activeDisasters.filter(disaster => 
-      disaster.location.toLowerCase().includes(location.state.toLowerCase()) ||
-      disaster.location.toLowerCase().includes(location.city.toLowerCase())
-    );
+  const getLocalDisasters = async (location: Location): Promise<DisasterAlert[]> => {
+    try {
+      return await FirebaseService.getLocalDisasters(location);
+    } catch (error) {
+      console.error("Error getting local disasters:", error);
+      
+      // Fallback to client-side filtering if Firebase call fails
+      if (!location.state) return [];
+      
+      return activeDisasters.filter(disaster => 
+        disaster.location.toLowerCase().includes(location.state.toLowerCase()) ||
+        disaster.location.toLowerCase().includes(location.city.toLowerCase())
+      );
+    }
   };
 
   // Emergency contacts management
-  const addEmergencyContact = (contact: Omit<EmergencyContact, "id">) => {
-    const newContact: EmergencyContact = {
-      ...contact,
-      id: "ec_" + Math.random().toString(36).substring(2, 9)
-    };
-    
-    const updatedContacts = [...emergencyContacts, newContact];
-    setEmergencyContacts(updatedContacts);
-    localStorage.setItem("emergencyContacts", JSON.stringify(updatedContacts));
-    toast.success("Emergency contact added!");
+  const addEmergencyContact = async (contact: Omit<EmergencyContact, "id">) => {
+    try {
+      if (!user || !user.id) {
+        throw new Error("User not authenticated");
+      }
+      
+      const newContact = await FirebaseService.addEmergencyContact(user.id, contact);
+      setEmergencyContacts(prevContacts => [...prevContacts, newContact]);
+      toast.success("Emergency contact added!");
+    } catch (error) {
+      console.error("Error adding contact:", error);
+      toast.error("Failed to add contact. Please try again.");
+    }
   };
 
-  const removeEmergencyContact = (id: string) => {
-    const updatedContacts = emergencyContacts.filter(contact => contact.id !== id);
-    setEmergencyContacts(updatedContacts);
-    localStorage.setItem("emergencyContacts", JSON.stringify(updatedContacts));
-    toast.success("Emergency contact removed");
+  const removeEmergencyContact = async (id: string) => {
+    try {
+      await FirebaseService.removeEmergencyContact(id);
+      setEmergencyContacts(prevContacts => prevContacts.filter(contact => contact.id !== id));
+      toast.success("Emergency contact removed");
+    } catch (error) {
+      console.error("Error removing contact:", error);
+      toast.error("Failed to remove contact. Please try again.");
+    }
   };
 
   // Community messages
-  const addCommunityMessage = (message: string, userName: string, location: string) => {
-    const newMessage: CommunityMessage = {
-      id: "msg_" + Math.random().toString(36).substring(2, 9),
-      userId: "user_" + Math.random().toString(36).substring(2, 9),
-      userName,
-      message,
-      timestamp: new Date().toISOString(),
-      location
-    };
-    
-    const updatedMessages = [newMessage, ...communityMessages];
-    setCommunityMessages(updatedMessages);
-    localStorage.setItem("communityMessages", JSON.stringify(updatedMessages));
-    toast.success("Message posted to community!");
+  const addCommunityMessage = async (message: string, userName: string, location: string) => {
+    try {
+      if (!user || !user.id) {
+        throw new Error("User not authenticated");
+      }
+      
+      const newMessage = await FirebaseService.addCommunityMessage({
+        userId: user.id,
+        userName,
+        message,
+        location
+      });
+      
+      setCommunityMessages(prevMessages => [newMessage, ...prevMessages]);
+      toast.success("Message posted to community!");
+    } catch (error) {
+      console.error("Error posting message:", error);
+      toast.error("Failed to post message. Please try again.");
+    }
   };
 
   // Checklist management
-  const getChecklistForDisaster = (disasterType: string): ChecklistItem[] => {
-    // First check if user has saved checklist items
-    const userItems = checklistItems.filter(item => item.disasterType === disasterType);
-    
-    // If user has items, return those, otherwise return sample items
-    if (userItems.length > 0) {
-      return userItems;
+  const getChecklistForDisaster = async (disasterType: string): Promise<ChecklistItem[]> => {
+    try {
+      if (!user || !user.id) {
+        // Return sample checklist for non-authenticated users
+        return SAMPLE_CHECKLISTS[disasterType] || [];
+      }
+      
+      // Get user-specific checklist
+      const userItems = await FirebaseService.getChecklistItems(user.id, disasterType);
+      
+      // If user has items, return those, otherwise create from sample
+      if (userItems.length > 0) {
+        return userItems;
+      }
+      
+      // If no items exist for this disaster type, create them from sample
+      const sampleItems = SAMPLE_CHECKLISTS[disasterType] || [];
+      const newItems: ChecklistItem[] = [];
+      
+      // Add sample items to Firebase and state
+      for (const item of sampleItems) {
+        const newItem = await FirebaseService.addChecklistItem(user.id, {
+          task: item.task,
+          isCompleted: false,
+          disasterType
+        });
+        newItems.push(newItem);
+      }
+      
+      // Update state
+      setChecklistItems(prev => [...prev, ...newItems]);
+      
+      return newItems;
+    } catch (error) {
+      console.error("Error getting checklist:", error);
+      // Fallback to sample data
+      return SAMPLE_CHECKLISTS[disasterType] || [];
     }
-    
-    // Return sample checklist or empty array if not found
-    return SAMPLE_CHECKLISTS[disasterType] || [];
   };
 
-  const toggleChecklistItem = (id: string) => {
-    const updatedItems = checklistItems.map(item => 
-      item.id === id ? { ...item, isCompleted: !item.isCompleted } : item
-    );
-    
-    setChecklistItems(updatedItems);
-    localStorage.setItem("checklistItems", JSON.stringify(updatedItems));
+  const toggleChecklistItem = async (id: string) => {
+    try {
+      // Find the item to toggle
+      const item = checklistItems.find(item => item.id === id);
+      if (!item) return;
+      
+      // Update in Firebase
+      await FirebaseService.toggleChecklistItem(id, !item.isCompleted);
+      
+      // Update state
+      setChecklistItems(prevItems => 
+        prevItems.map(item => item.id === id ? { ...item, isCompleted: !item.isCompleted } : item)
+      );
+    } catch (error) {
+      console.error("Error toggling checklist item:", error);
+      toast.error("Failed to update checklist. Please try again.");
+    }
   };
 
   return (
@@ -293,7 +381,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         addCommunityMessage,
         checklistItems,
         getChecklistForDisaster,
-        toggleChecklistItem
+        toggleChecklistItem,
+        isLoading
       }}
     >
       {children}
