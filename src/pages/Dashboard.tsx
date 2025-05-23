@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
@@ -22,16 +23,37 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [selectedAlert, setSelectedAlert] = useState<DisasterAlertType | null>(null);
   const [isAlertDialogOpen, setIsAlertDialogOpen] = useState(false);
+  const [localDisasters, setLocalDisasters] = useState<DisasterAlertType[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   
   // Redirect if not authenticated
-  React.useEffect(() => {
+  useEffect(() => {
     if (!user) {
       navigate('/');
     }
   }, [user, navigate]);
   
   // Get local disasters
-  const localDisasters = user?.location ? getLocalDisasters(user.location) : [];
+  useEffect(() => {
+    const fetchLocalDisasters = async () => {
+      if (user?.location) {
+        setLoading(true);
+        try {
+          const disasters = await getLocalDisasters(user.location);
+          setLocalDisasters(disasters);
+        } catch (error) {
+          console.error("Error fetching local disasters:", error);
+          setLocalDisasters([]);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setLocalDisasters([]);
+      }
+    };
+    
+    fetchLocalDisasters();
+  }, [user, getLocalDisasters]);
   
   const handleViewAlertDetails = (alert: DisasterAlertType) => {
     setSelectedAlert(alert);
@@ -57,7 +79,11 @@ const Dashboard: React.FC = () => {
                 Disaster Alerts
               </h2>
               
-              {localDisasters.length === 0 ? (
+              {loading ? (
+                <Card className="p-4 text-center">
+                  <p className="text-sm">Loading disaster alerts...</p>
+                </Card>
+              ) : localDisasters.length === 0 ? (
                 <Card className="bg-green-50 border-green-200 p-4 text-center">
                   <div className="flex items-center justify-center mb-2">
                     <Info className="h-5 w-5 text-green-600 mr-2" />

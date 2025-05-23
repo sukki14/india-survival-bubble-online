@@ -1,15 +1,18 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useData } from '@/contexts/DataContext';
 import { CheckCircle } from "lucide-react";
+import { ChecklistItem } from '@/types';
 
 const DisasterChecklist: React.FC = () => {
   const { getChecklistForDisaster, toggleChecklistItem, activeDisasters } = useData();
   const [selectedDisasterType, setSelectedDisasterType] = useState<string>("Flood");
+  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   
   // Get unique disaster types from active disasters
   const disasterTypes = useMemo(() => {
@@ -19,9 +22,22 @@ const DisasterChecklist: React.FC = () => {
     return Array.from(new Set([...types, ...defaultTypes]));
   }, [activeDisasters]);
   
-  // Get checklist items for selected disaster
-  const checklistItems = useMemo(() => {
-    return getChecklistForDisaster(selectedDisasterType);
+  // Fetch checklist items for selected disaster
+  useEffect(() => {
+    const fetchChecklist = async () => {
+      setLoading(true);
+      try {
+        const items = await getChecklistForDisaster(selectedDisasterType);
+        setChecklistItems(items);
+      } catch (error) {
+        console.error("Error fetching checklist:", error);
+        setChecklistItems([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchChecklist();
   }, [selectedDisasterType, getChecklistForDisaster]);
   
   // Calculate progress
@@ -69,7 +85,11 @@ const DisasterChecklist: React.FC = () => {
         </div>
 
         <div className="space-y-3">
-          {checklistItems.length === 0 ? (
+          {loading ? (
+            <p className="text-center text-sm text-muted-foreground py-4">
+              Loading checklist items...
+            </p>
+          ) : checklistItems.length === 0 ? (
             <p className="text-center text-sm text-muted-foreground py-4">
               No checklist items available for this type of disaster.
             </p>
