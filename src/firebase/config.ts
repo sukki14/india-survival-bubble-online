@@ -1,23 +1,26 @@
-
-// Import the functions you need from the SDKs you need
+// Import Firebase SDK pieces
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getAnalytics } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 
-// Your web app's Firebase configuration
+// Firebase config
 const firebaseConfig = {
-  apiKey: "AIzaSyBmxEPvYA6f6mZmtvdKqzIlUDjmqfUlWd8",
+  apiKey: "1:447564857407:web:b8a72dc6b8b0767cafb88a",
   authDomain: "survival-bubble.firebaseapp.com",
   projectId: "survival-bubble",
   storageBucket: "survival-bubble.appspot.com",
-  messagingSenderId: "564218304819",
-  appId: "1:564218304819:web:48293ed6beda5f9f8c59c3"
+  messagingSenderId: "447564857407",
+  appId: "1:447564857407:web:b8a72dc6b8b0767cafb88a",
+  measurementId: "G-3JGY84XKGK"
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
-export const auth = getAuth(app);
+const analytics = getAnalytics(app);
 
-// Note to users: Replace the above config with your own Firebase config.
-// You can get your config from the Firebase console.
+// ✅ Add these
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const firebaseApp = app;
+export const firebaseAnalytics = analytics;
